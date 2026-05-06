@@ -1,5 +1,10 @@
 from typing import TypedDict, Dict, Any
+from pydantic import BaseModel
 
+
+class AgentRequest(BaseModel):
+    input_text: str
+    form_state: Dict[str, Any]
 
 class AgentState(TypedDict, total=False):
     input: str
