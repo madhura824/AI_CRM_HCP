@@ -95,10 +95,26 @@ def merge_lists(existing, new):
             result.append(item)
     return result
 
+def normalize_samples(samples):
+    normalized = []
+
+    for s in samples:
+        normalized.append({
+            "medicine_name": s.get("medicine_name") or s.get("Medicine Name"),
+            "sample_name": s.get("sample_name") or s.get("Sample Name"),
+            "quantity": s.get("quantity") or s.get("Samples Distributed")
+        })
+
+    return normalized
 
 def apply_action(form: dict, action: str, payload: dict):
     updated_form = copy.deepcopy(form)
     payload = payload or {}
+    # 🔥 Normalize samples BEFORE applying
+    if "samples_distributed" in payload:
+        payload["samples_distributed"] = normalize_samples(
+            payload["samples_distributed"]
+        )
 
     # 🔥 STEP 1: Normalize
     payload = normalize_payload(payload)
@@ -132,5 +148,16 @@ def apply_action(form: dict, action: str, payload: dict):
             else:
                 if key in updated_form:
                     del updated_form[key]
+    elif action == "ENRICH":
+        if "materials_shared" in updated_form:
+            updated_form["materials_shared"] += [
+                "clinical brochure",
+                "research paper"
+            ]
+    elif action == "GENERATE_ARTIFACT":
+        updated_form["samples_distributed"] = (
+            updated_form.get("samples_distributed", []) +
+            ["Generated Sample Report"]
+        )
 
     return updated_form
