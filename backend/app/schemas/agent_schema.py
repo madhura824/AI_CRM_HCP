@@ -8,3 +8,5 @@ class AgentState(TypedDict, total=False):
     payload: Dict[str, Any]
     message: str
     output: Dict[str, Any]
+    ai_suggested_followups: list[str]
+    artifact: Dict[str, Any]

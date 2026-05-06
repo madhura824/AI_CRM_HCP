@@ -77,3 +77,20 @@ OUTPUT FORMAT
   "message": "short confirmation message"
 }
 """
+
+
+FOLLOWUP_PROMPT = """
+You are an AI assistant helping a CRM user.
+
+Based on the current form data, suggest 3 smart follow-up actions.
+
+Rules:
+- Keep them short
+- Actionable
+- Professional
+
+Return JSON:
+{
+  "followups": ["...", "...", "..."]
+}
+"""

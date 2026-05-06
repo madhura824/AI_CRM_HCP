@@ -6,7 +6,9 @@ builder = StateGraph(AgentState)
 builder.add_node("llm", llm_node)
 builder.add_node("execute", executor_node)
 builder.add_node("followup", followup_node)
+
 builder.set_entry_point("llm")
+
 builder.add_edge("llm", "execute")
 builder.add_edge("execute", "followup")
 builder.add_edge("followup", END)
