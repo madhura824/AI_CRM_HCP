@@ -7,4 +7,4 @@ app.include_router(router)
 
 @app.get("/")
 def root():
-    return {"message": "AI CRM Backend Running"}
+    return {"message": "Backend running"}
