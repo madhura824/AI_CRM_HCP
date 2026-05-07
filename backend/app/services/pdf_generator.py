@@ -55,16 +55,12 @@ def generate_samples_pdf(samples: list):
     styles = getSampleStyleSheet()
     elements = []
 
-    # -------------------------
-    # Title
-    # -------------------------
+
     title = Paragraph("Samples Distributed Report", styles["Title"])
     elements.append(title)
     elements.append(Spacer(1, 12))
 
-    # -------------------------
-    # Table Data
-    # -------------------------
+# table data
     data = [["Medicine Name", "Sample Name", "Quantity"]]
 
     for s in samples or []:
@@ -79,9 +75,7 @@ def generate_samples_pdf(samples: list):
             str(s.get("quantity", ""))
         ])
 
-    # -------------------------
-    # Table Styling
-    # -------------------------
+# table styling
     table = Table(data)
 
     table.setStyle(TableStyle([
@@ -96,9 +90,7 @@ def generate_samples_pdf(samples: list):
 
     elements.append(table)
 
-    # -------------------------
-    # Build PDF
-    # -------------------------
+# create pdf
     doc.build(elements)
 
     buffer.seek(0)

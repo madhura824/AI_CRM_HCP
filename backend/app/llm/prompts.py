@@ -99,8 +99,8 @@ STRICT RULES:
     - medicine + sample + quantity structure
     - or keywords like "samples distributed", "list of samples", "table"
 
-    👉 MUST use GENERATE_ARTIFACT action
-    👉 MUST extract structured samples_distributed array
+    - MUST use GENERATE_ARTIFACT action
+    - MUST extract structured samples_distributed array
 
 -For GENERATE_ARTIFACT:
     - ALWAYS return payload.samples_distributed as structured list
@@ -114,13 +114,13 @@ If user says:
 - "not X but Y"
 - "replace X with Y"
 - "change X to Y"
-👉 Use SMART REPLACE (overwrite full field)
+- Use SMART REPLACE (overwrite full field)
 
 If user adds new information:
-👉 Use MERGE
+- Use MERGE
 
 If user corrects a value:
-👉 OVERWRITE that field completely
+- OVERWRITE that field completely
 
 =====================
 DELETE FIELD RULE (CRITICAL)
@@ -131,7 +131,7 @@ When user requests:
 - "delete X"
 - "clear X"
 
-    👉 You MUST return:
+    - You MUST return:
     payload: {
     "field_name": null
     }

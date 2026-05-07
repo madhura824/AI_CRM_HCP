@@ -156,14 +156,12 @@ from app.services.pdf_generator import generate_samples_pdf
 #             if value in [None, "", "unknown"]:
 #                 continue
 
-#             # -----------------------------
-#             # detect FULL DELETE request
-#             # -----------------------------
+
 #             is_delete_all = str(value).lower() in ["all", "__all__", "remove all", "*", "clear all", "delete all"]
 
-#             # -----------------------------
-#             # LIST FIELDS (multi-value fields)
-#             # -----------------------------
+
+#             # for multi value fields
+
 #             if key in LIST_FIELDS:
 
 #                 existing = updated_form.get(key, [])
@@ -171,14 +169,14 @@ from app.services.pdf_generator import generate_samples_pdf
 #                 if not isinstance(existing, list):
 #                     existing = []
 
-#                 # CASE 1: delete ALL
+#                 #  1: delete ALL
 #                 if is_delete_all:
 #                     updated_form[key] = []
 
-#                 # CASE 2: delete specific value(s)
+#                 #  2: delete specific value(s)
 #                 else:
 
-#                     # ensure list format for safety
+#                     # confirm list format for safety
 #                     if not isinstance(value, list):
 #                         value = [value]
 
@@ -187,9 +185,8 @@ from app.services.pdf_generator import generate_samples_pdf
 #                         if item not in value
 #                     ]
 
-#             # -----------------------------
-#             # SCALAR FIELDS (single value)
-#             # -----------------------------
+#             
+#             # delete logic for single values
 #             else:
 
 #                 # CASE 1: delete ALL OR any delete request → clear field
@@ -206,32 +203,32 @@ from app.services.pdf_generator import generate_samples_pdf
 #         }
 
 
-#     # -----------------------------
-#     # 1. Normalize samples FIRST
-#     # -----------------------------
+#     
+#     # 1. normalization of the samples 
+
 #     if "samples_distributed" in payload:
 #         payload["samples_distributed"] = normalize_samples(
 #             payload["samples_distributed"]
 #         )
 
-#     # -----------------------------
-#     # 2. Normalize KEYS FIRST
-#     # -----------------------------
+#     
+#     # 2. Normalization of the keys
+#   
 #     payload = normalize_payload(payload)
 
-#     # -----------------------------
-#     # 3. Filter AFTER normalization (IMPORTANT FIX)
-#     # -----------------------------
+#   
+#     # 3. filter after normalization
+#   
 #     payload = filter_payload(payload)
 
-#     # -----------------------------
-#     # 4. Sanitize
-#     # -----------------------------
+# 
+#     # 4. sanitize
+#    
 #     payload = sanitize_payload(payload)
 
-#     # -----------------------------
+#    
 #     # 5. Type normalization
-#     # -----------------------------
+#     
 #     payload = normalize_payload_types(payload)
 #     if action == "GENERATE_ARTIFACT":
 
@@ -266,7 +263,7 @@ from app.services.pdf_generator import generate_samples_pdf
 #     if action not in ["ADD", "UPDATE"]:
 #         return updated_form
 
-#     # ❗ guard: if payload becomes empty, STOP
+#     #  if payload becomes empty,then stop
 #     if not payload:
 #         print("WARNING: empty payload after processing")
 #         return updated_form
@@ -314,9 +311,9 @@ def apply_action(form: dict, action: str, payload: dict):
     updated_form = copy.deepcopy(form)
     payload = payload or {}
 
-    # =========================================================
-    # DELETE ACTION (unchanged behavior, but safer)
-    # =========================================================
+
+    # DELETE ACTION
+    
     if action == "DELETE":
 
         payload = normalize_payload(payload)
@@ -324,20 +321,18 @@ def apply_action(form: dict, action: str, payload: dict):
 
         for key, value in payload.items():
 
-            # -------------------------------------------------
-            # FIX 1: DO NOT skip None for DELETE
-            # -------------------------------------------------
+            
             if key not in payload:
                 continue
 
-            # interpret DELETE intent even if value is None
+            # interpret delete intent 
             is_delete_all = str(value).lower() in [
                 "all", "__all__", "remove all", "*", "clear all", "delete all"
             ]
 
-            # -------------------------------------------------
-            # LIST FIELDS
-            # -------------------------------------------------
+            
+            # if the key is in the list fields
+
             if key in LIST_FIELDS:
 
                 existing = updated_form.get(key, [])
@@ -358,18 +353,17 @@ def apply_action(form: dict, action: str, payload: dict):
                         if item not in value
                     ]
 
-            # -------------------------------------------------
-            # SCALAR FIELDS (IMPORTANT FIX HERE)
-            # -------------------------------------------------
+            
+            # deletion of scalar fields (fields having a single valye (date/TIme))
+            
             else:
 
-                # 🔥 ALWAYS DELETE SCALAR FIELD IF KEY IS PRESENT
                 updated_form[key] = None
 
         return updated_form
-    # =========================================================
-    # GENERATE ARTIFACT (UNCHANGED)
-    # =========================================================
+    
+   
+    
     # if action == "GENERATE_ARTIFACT":
 
     #     artifact = payload.get("samples_distributed", [])
@@ -431,13 +425,13 @@ def apply_action(form: dict, action: str, payload: dict):
             "artifact_file": artifact_file,
             "message": "Artifact generated successfully"
         }
-    # =========================================================
-    # ADD / UPDATE (FIXED LOGIC)
-    # =========================================================
+  
+    # add / update actions
+    
     if action not in ["ADD", "UPDATE"]:
         return updated_form
 
-# ---------------- normalize pipeline ----------------
+#  normalize pipeline 
     if "samples_distributed" in payload:
         payload["samples_distributed"] = normalize_samples(
             payload["samples_distributed"]
@@ -452,9 +446,7 @@ def apply_action(form: dict, action: str, payload: dict):
         return updated_form
 
 
-    # =========================================================
-    # SAFE ADD / UPDATE (NO REPLACEMENT FOR LIST FIELDS)
-    # =========================================================
+
     for key, value in payload.items():
 
         if is_empty(value):
@@ -462,7 +454,7 @@ def apply_action(form: dict, action: str, payload: dict):
 
         strategy = FIELD_STRATEGY.get(key, "merge")
 
-        # ---------------- SCALAR SAFE UPDATE ----------------
+        #  Updation logic for scalar fields 
         if key not in LIST_FIELDS:
 
             if strategy == "overwrite":
@@ -474,7 +466,7 @@ def apply_action(form: dict, action: str, payload: dict):
             else:
                 updated_form[key] = value
 
-        # ---------------- LIST FIELDS = ALWAYS APPEND ----------------
+        
         else:
 
             existing = updated_form.get(key, [])
@@ -485,7 +477,7 @@ def apply_action(form: dict, action: str, payload: dict):
             if not isinstance(value, list):
                 value = [value]
 
-            # STRICT APPEND ONLY (NO REPLACEMENT EVER)
+            # strict append (no replacement logic)
             for item in value:
                 if item not in existing:
                     existing.append(item)
