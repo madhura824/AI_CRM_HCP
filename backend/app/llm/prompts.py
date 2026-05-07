@@ -191,12 +191,29 @@ You are an AI assistant helping a CRM user.
 
 Based on the current form data, suggest 3 smart follow-up actions.
 
-Rules:
+
+=====================
+FOLLOWUP ACTION RULES
+=====================
+
+You MUST generate followup_actions ONLY when relevant.
+
+Generate followups when:
+- a disease is mentioned (monitoring needed)
+- medicines or samples are shared (response tracking needed)
+- interaction type is visit/meeting (next visit possible)
+- sentiment is neutral or negative (follow-up needed)
+- corrections or updates are made
 - Keep them short
 - Actionable
 - Professional
 
-RETURNING OF THE followups is compulsory
+DO NOT generate followup_actions when:
+- only doctor name is mentioned
+- only metadata is provided
+- no clinical/actionable context exists
+
+If no followup is required, return an empty array.
 
 Return JSON:
 {

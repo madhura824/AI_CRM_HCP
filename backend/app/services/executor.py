@@ -405,7 +405,9 @@ def apply_action(form: dict, action: str, payload: dict):
     #     }
     if action == "GENERATE_ARTIFACT":
 
-        artifact_data = updated_form.get("samples_distributed", [])
+        artifact_data = normalize_samples(
+            payload.get("samples_distributed", [])
+        )
 
         pdf_buffer = generate_samples_pdf(artifact_data)
 
