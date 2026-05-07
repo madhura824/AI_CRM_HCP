@@ -91,6 +91,43 @@ STRICT RULES:
     - NEVER summarize
     - NEVER return string
 =====================
+UPDATE SEMANTICS (CRITICAL)
+=====================
+
+If user says:
+- "not X but Y"
+- "replace X with Y"
+- "change X to Y"
+👉 Use SMART REPLACE (overwrite full field)
+
+If user adds new information:
+👉 Use MERGE
+
+If user corrects a value:
+👉 OVERWRITE that field completely
+
+=====================
+DELETE FIELD RULE (CRITICAL)
+=====================
+
+When user requests:
+- "remove all X"
+- "delete X"
+- "clear X"
+
+    👉 You MUST return:
+    payload: {
+    "field_name": null
+    }
+
+Examples:
+- remove materials shared → {"materials_shared": null}
+- clear topics discussed → {"topics_discussed": null}
+
+NEVER return string values for DELETE.
+ALWAYS use null for full deletion.
+
+=====================
 OUTPUT RULES
 =====================
 - Return ONLY valid JSON

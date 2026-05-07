@@ -30,5 +30,5 @@ def run_agent(request: AgentRequest):
         "message": result.get("message"),
         "action": result.get("action"),
         "ai_suggested_followups": result.get("ai_suggested_followups"),
-         "artifact_file": result.get("artifact_file")  # 🔥 THIS WAS MISSING
+        "artifact_file": result.get("artifact_file")  # 🔥 THIS WAS MISSING
     }

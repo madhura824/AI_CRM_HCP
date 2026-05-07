@@ -1,26 +1,26 @@
+import json
+import uuid
+import os
+from datetime import datetime
+from typing import TypedDict, Dict, Any, List
+
 from app.llm.parser import parse_response
 from app.services.executor import apply_action
 from app.schemas.agent_schema import AgentState
-from app.llm.prompts import SYSTEM_PROMPT
+from app.llm.prompts import SYSTEM_PROMPT, FOLLOWUP_PROMPT
 from app.llm.groq_client import llm
 from app.services.post_processor import enforce_action_rules
-from typing import TypedDict, Dict, Any, List
-from app.llm.prompts import FOLLOWUP_PROMPT
 from app.services.sentiment import fallback_sentiment
 from app.services.pdf_generator import generate_samples_pdf
 
-import json
 
 def llm_node(state: AgentState):
     user_input = state["input"]
 
     prompt = SYSTEM_PROMPT + f"""
+USER INPUT: {user_input}
 
-USER INPUT:
-{user_input}
-
-IMPORTANT:
-Always include sentiment in payload.
+IMPORTANT: Always include sentiment in payload.
 """
 
     response = llm.invoke(prompt)
@@ -36,8 +36,9 @@ Always include sentiment in payload.
         "action": action,
         "payload": payload,
         "message": message,
-        "form": state["form"]
+        "form": state["form"],
     }
+
 
 def executor_node(state: AgentState):
     form = state["form"]
@@ -48,38 +49,31 @@ def executor_node(state: AgentState):
 
     artifact_file = None
 
-    # 🔥 THIS IS WHERE YOU PUT IT
+    # Generate PDF artifact if required
     artifact = updated_form.get("artifact")
-
     if artifact and artifact.get("type") == "samples_pdf":
-        artifact = updated_form.get("artifact")
+        pdf_buffer = generate_samples_pdf(artifact["data"])
 
-        if artifact and artifact.get("type") == "samples_pdf":
-            pdf_buffer = generate_samples_pdf(artifact["data"])
+        os.makedirs("files", exist_ok=True)
 
-            import uuid, os
-            import uuid, os
-            from datetime import datetime
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        file_id = f"samples_{timestamp}_{uuid.uuid4().hex[:6]}.pdf"
+        file_path = f"files/{file_id}"
 
-            os.makedirs("files", exist_ok=True)
+        with open(file_path, "wb") as f:
+            f.write(pdf_buffer.getvalue())
 
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            file_id = f"samples_{timestamp}_{uuid.uuid4().hex[:6]}.pdf"
-            file_path = f"files/{file_id}"
-
-            with open(file_path, "wb") as f:
-                f.write(pdf_buffer.getvalue())
-
-            artifact_file = f"http://127.0.0.1:8000/files/{file_id}"
+        artifact_file = f"http://127.0.0.1:8000/files/{file_id}"
 
     return {
         **state,
         "form": updated_form,
         "message": state.get("message"),
         "action": action,
-        "artifact_file": artifact_file
+        "artifact_file": artifact_file,
     }
-        
+
+
 def followup_node(state: AgentState):
     form_data = state.get("form", {})
 
@@ -87,22 +81,27 @@ def followup_node(state: AgentState):
 
     response = llm.invoke(prompt)
     parsed = parse_response(response.content)
-    if not parsed.get("payload", {}).get("sentiment") and  parsed.get("input", ""):
-        parsed.setdefault("payload", {})["sentiment"] = fallback_sentiment(parsed.get("input"))
+
+    # Ensure sentiment fallback
+    if (
+        not parsed.get("payload", {}).get("sentiment")
+        and parsed.get("input", "")
+    ):
+        parsed.setdefault("payload", {})["sentiment"] = fallback_sentiment(
+            parsed.get("input")
+        )
 
     raw_followups = parsed.get("followups", [])
 
-    #  Convert to list of strings
-    clean_followups = []
+    clean_followups: List[str] = []
 
     for item in raw_followups:
         if isinstance(item, dict):
-            # Prefer 'action', fallback to 'description'
             clean_followups.append(item.get("action") or item.get("description"))
         elif isinstance(item, str):
             clean_followups.append(item)
 
     return {
         **state,
-        "ai_suggested_followups": clean_followups
+        "ai_suggested_followups": clean_followups,
     }
