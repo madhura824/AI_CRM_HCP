@@ -51,6 +51,9 @@ FIELD_STRATEGY = {
     "followup_actions": "merge"
 }
 
+def is_empty(value):
+    return value in [None, "", [], {}]
+
 def sanitize_payload(payload):
     if "interaction_type" in payload:
         if payload["interaction_type"] not in VALID_INTERACTIONS:
@@ -139,58 +142,275 @@ import copy
 from datetime import datetime, timedelta
 from app.services.pdf_generator import generate_samples_pdf
 
+# def apply_action(form: dict, action: str, payload: dict):
+#     if not action:
+#         return form
+#     updated_form = copy.deepcopy(form)
+#     payload = payload or {}
+#     if action == "DELETE":
+#         payload = normalize_payload(payload)
+#         payload = filter_payload(payload)
+
+#         for key, value in payload.items():
+
+#             if value in [None, "", "unknown"]:
+#                 continue
+
+#             # -----------------------------
+#             # detect FULL DELETE request
+#             # -----------------------------
+#             is_delete_all = str(value).lower() in ["all", "__all__", "remove all", "*", "clear all", "delete all"]
+
+#             # -----------------------------
+#             # LIST FIELDS (multi-value fields)
+#             # -----------------------------
+#             if key in LIST_FIELDS:
+
+#                 existing = updated_form.get(key, [])
+
+#                 if not isinstance(existing, list):
+#                     existing = []
+
+#                 # CASE 1: delete ALL
+#                 if is_delete_all:
+#                     updated_form[key] = []
+
+#                 # CASE 2: delete specific value(s)
+#                 else:
+
+#                     # ensure list format for safety
+#                     if not isinstance(value, list):
+#                         value = [value]
+
+#                     updated_form[key] = [
+#                         item for item in existing
+#                         if item not in value
+#                     ]
+
+#             # -----------------------------
+#             # SCALAR FIELDS (single value)
+#             # -----------------------------
+#             else:
+
+#                 # CASE 1: delete ALL OR any delete request → clear field
+#                 updated_form[key] = None
+#         return updated_form
+    
+
+#     if action == "GENERATE_ARTIFACT":
+#         file_path = generate_samples_pdf(payload)
+
+#         updated_form["generated_artifact"] = {
+#             "type": "pdf",
+#             "path": file_path
+#         }
+
+
+#     # -----------------------------
+#     # 1. Normalize samples FIRST
+#     # -----------------------------
+#     if "samples_distributed" in payload:
+#         payload["samples_distributed"] = normalize_samples(
+#             payload["samples_distributed"]
+#         )
+
+#     # -----------------------------
+#     # 2. Normalize KEYS FIRST
+#     # -----------------------------
+#     payload = normalize_payload(payload)
+
+#     # -----------------------------
+#     # 3. Filter AFTER normalization (IMPORTANT FIX)
+#     # -----------------------------
+#     payload = filter_payload(payload)
+
+#     # -----------------------------
+#     # 4. Sanitize
+#     # -----------------------------
+#     payload = sanitize_payload(payload)
+
+#     # -----------------------------
+#     # 5. Type normalization
+#     # -----------------------------
+#     payload = normalize_payload_types(payload)
+#     if action == "GENERATE_ARTIFACT":
+
+#         import os, uuid
+#         from datetime import datetime
+
+#         artifact = payload.get("samples_distributed", [])
+#         print("ARTIFACT DEBUG:", artifact, type(artifact))
+
+#         pdf_buffer = generate_samples_pdf(artifact)
+
+#         os.makedirs("files", exist_ok=True)
+
+#         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+#         file_id = f"samples_{timestamp}_{uuid.uuid4().hex[:6]}.pdf"
+#         file_path = f"files/{file_id}"
+
+#         with open(file_path, "wb") as f:
+#             f.write(pdf_buffer.getvalue())
+
+#         artifact_file = f"http://127.0.0.1:8000/files/{file_id}"
+
+#         updated_form["artifact_file"] = artifact_file
+
+#         return {
+#             "form": updated_form,
+#             "action": action,
+#             "artifact_file": artifact_file,
+#             "message": "Artifact generated successfully"
+#         }
+
+#     if action not in ["ADD", "UPDATE"]:
+#         return updated_form
+
+#     # ❗ guard: if payload becomes empty, STOP
+#     if not payload:
+#         print("WARNING: empty payload after processing")
+#         return updated_form
+
+#     for key, value in payload.items():
+
+#         # skip invalid values
+#         if value in [None, "", "unknown"]:
+#             continue
+
+#         strategy = FIELD_STRATEGY.get(key, "merge")
+
+#         if strategy == "overwrite":
+#             updated_form[key] = value
+
+#         elif strategy == "resolve_date":
+#             updated_form[key] = resolve_date(value)
+
+#         elif strategy == "smart_replace":
+#             updated_form[key] = value
+
+#         elif strategy == "merge":
+#             existing = updated_form.get(key, [])
+#             updated_form[key] = merge_lists(existing, value)
+
+#         elif strategy == "merge_objects":
+#             existing = updated_form.get(key, [])
+#             updated_form[key] = merge_lists(existing, value)
+
+#         else:
+#             updated_form[key] = value
+
+#         # sync rule
+#         if key == "hcp_name":
+#             updated_form["attendees"] = [value]
+
+#     return updated_form
+
+
 def apply_action(form: dict, action: str, payload: dict):
     if not action:
         return form
 
+    action = action.upper()
     updated_form = copy.deepcopy(form)
     payload = payload or {}
 
+    # =========================================================
+    # DELETE ACTION (unchanged behavior, but safer)
+    # =========================================================
+    if action == "DELETE":
+
+        payload = normalize_payload(payload)
+        payload = filter_payload(payload)
+
+        for key, value in payload.items():
+
+            # -------------------------------------------------
+            # FIX 1: DO NOT skip None for DELETE
+            # -------------------------------------------------
+            if key not in payload:
+                continue
+
+            # interpret DELETE intent even if value is None
+            is_delete_all = str(value).lower() in [
+                "all", "__all__", "remove all", "*", "clear all", "delete all"
+            ]
+
+            # -------------------------------------------------
+            # LIST FIELDS
+            # -------------------------------------------------
+            if key in LIST_FIELDS:
+
+                existing = updated_form.get(key, [])
+                if not isinstance(existing, list):
+                    existing = []
+
+                if is_delete_all:
+                    updated_form[key] = []
+                else:
+                    if value is None:
+                        continue
+
+                    if not isinstance(value, list):
+                        value = [value]
+
+                    updated_form[key] = [
+                        item for item in existing
+                        if item not in value
+                    ]
+
+            # -------------------------------------------------
+            # SCALAR FIELDS (IMPORTANT FIX HERE)
+            # -------------------------------------------------
+            else:
+
+                # 🔥 ALWAYS DELETE SCALAR FIELD IF KEY IS PRESENT
+                updated_form[key] = None
+
+        return updated_form
+    # =========================================================
+    # GENERATE ARTIFACT (UNCHANGED)
+    # =========================================================
+    # if action == "GENERATE_ARTIFACT":
+
+    #     artifact = payload.get("samples_distributed", [])
+
+    #     pdf_buffer = generate_samples_pdf(artifact)
+
+    #     import os, uuid
+    #     from datetime import datetime
+
+    #     os.makedirs("files", exist_ok=True)
+
+    #     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    #     file_id = f"samples_{timestamp}_{uuid.uuid4().hex[:6]}.pdf"
+    #     file_path = f"files/{file_id}"
+
+    #     with open(file_path, "wb") as f:
+    #         f.write(pdf_buffer.getvalue())
+
+    #     artifact_file = f"http://127.0.0.1:8000/files/{file_id}"
+
+    #     updated_form["generated_artifact"] = {
+    #         "type": "pdf",
+    #         "path": file_path
+    #     }
+
+    #     updated_form["artifact_file"] = artifact_file
+
+    #     return {
+    #         "form": updated_form,
+    #         "action": action,
+    #         "artifact_file": artifact_file,
+    #         "message": "Artifact generated successfully"
+    #     }
     if action == "GENERATE_ARTIFACT":
-        file_path = generate_samples_pdf(payload)
 
-        updated_form["generated_artifact"] = {
-            "type": "pdf",
-            "path": file_path
-        }
+        artifact_data = updated_form.get("samples_distributed", [])
 
-
-    # -----------------------------
-    # 1. Normalize samples FIRST
-    # -----------------------------
-    if "samples_distributed" in payload:
-        payload["samples_distributed"] = normalize_samples(
-            payload["samples_distributed"]
-        )
-
-    # -----------------------------
-    # 2. Normalize KEYS FIRST
-    # -----------------------------
-    payload = normalize_payload(payload)
-
-    # -----------------------------
-    # 3. Filter AFTER normalization (IMPORTANT FIX)
-    # -----------------------------
-    payload = filter_payload(payload)
-
-    # -----------------------------
-    # 4. Sanitize
-    # -----------------------------
-    payload = sanitize_payload(payload)
-
-    # -----------------------------
-    # 5. Type normalization
-    # -----------------------------
-    payload = normalize_payload_types(payload)
-    if action == "GENERATE_ARTIFACT":
+        pdf_buffer = generate_samples_pdf(artifact_data)
 
         import os, uuid
         from datetime import datetime
-
-        artifact = payload.get("samples_distributed", [])
-        print("ARTIFACT DEBUG:", artifact, type(artifact))
-
-        pdf_buffer = generate_samples_pdf(artifact)
 
         os.makedirs("files", exist_ok=True)
 
@@ -202,51 +422,73 @@ def apply_action(form: dict, action: str, payload: dict):
             f.write(pdf_buffer.getvalue())
 
         artifact_file = f"http://127.0.0.1:8000/files/{file_id}"
-
-        updated_form["artifact_file"] = artifact_file
-
+        
         return {
             "form": updated_form,
             "action": action,
             "artifact_file": artifact_file,
             "message": "Artifact generated successfully"
         }
-
+    # =========================================================
+    # ADD / UPDATE (FIXED LOGIC)
+    # =========================================================
     if action not in ["ADD", "UPDATE"]:
         return updated_form
 
-    # ❗ guard: if payload becomes empty, STOP
+# ---------------- normalize pipeline ----------------
+    if "samples_distributed" in payload:
+        payload["samples_distributed"] = normalize_samples(
+            payload["samples_distributed"]
+        )
+
+    payload = normalize_payload(payload)
+    payload = filter_payload(payload)
+    payload = sanitize_payload(payload)
+    payload = normalize_payload_types(payload)
+
     if not payload:
-        print("WARNING: empty payload after processing")
         return updated_form
 
+
+    # =========================================================
+    # SAFE ADD / UPDATE (NO REPLACEMENT FOR LIST FIELDS)
+    # =========================================================
     for key, value in payload.items():
 
-        # skip invalid values
-        if value in [None, "", "unknown"]:
+        if is_empty(value):
             continue
 
         strategy = FIELD_STRATEGY.get(key, "merge")
 
-        if strategy == "overwrite":
-            updated_form[key] = value
+        # ---------------- SCALAR SAFE UPDATE ----------------
+        if key not in LIST_FIELDS:
 
-        elif strategy == "resolve_date":
-            updated_form[key] = resolve_date(value)
+            if strategy == "overwrite":
+                updated_form[key] = value
 
-        elif strategy == "smart_replace":
-            updated_form[key] = value
+            elif strategy == "resolve_date":
+                updated_form[key] = resolve_date(value)
 
-        elif strategy == "merge":
-            existing = updated_form.get(key, [])
-            updated_form[key] = merge_lists(existing, value)
+            else:
+                updated_form[key] = value
 
-        elif strategy == "merge_objects":
-            existing = updated_form.get(key, [])
-            updated_form[key] = merge_lists(existing, value)
-
+        # ---------------- LIST FIELDS = ALWAYS APPEND ----------------
         else:
-            updated_form[key] = value
+
+            existing = updated_form.get(key, [])
+
+            if not isinstance(existing, list):
+                existing = []
+
+            if not isinstance(value, list):
+                value = [value]
+
+            # STRICT APPEND ONLY (NO REPLACEMENT EVER)
+            for item in value:
+                if item not in existing:
+                    existing.append(item)
+
+            updated_form[key] = existing
 
         # sync rule
         if key == "hcp_name":

@@ -196,6 +196,8 @@ Rules:
 - Actionable
 - Professional
 
+RETURNING OF THE followups is compulsory
+
 Return JSON:
 {
   "followups": ["...", "...", "..."]
