@@ -68,6 +68,11 @@ def generate_samples_pdf(samples: list):
     data = [["Medicine Name", "Sample Name", "Quantity"]]
 
     for s in samples or []:
+
+        if not isinstance(s, dict):
+            print("WARNING: skipping invalid sample:", s)
+            continue
+
         data.append([
             s.get("medicine_name", ""),
             s.get("sample_name", ""),

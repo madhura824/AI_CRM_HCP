@@ -12,36 +12,57 @@ from app.llm.groq_client import llm
 from app.services.post_processor import enforce_action_rules
 from app.services.sentiment import fallback_sentiment
 from app.services.pdf_generator import generate_samples_pdf
+import json
+import re
 
+def extract_json(text: str):
+    match = re.search(r"\{.*\}", text, re.DOTALL)
+    if not match:
+        return None
+    try:
+        return json.loads(match.group())
+    except:
+        return None
 
 def llm_node(state: AgentState):
+    
+
     user_input = state["input"]
 
     prompt = SYSTEM_PROMPT + f"""
 USER INPUT: {user_input}
-
-IMPORTANT: Always include sentiment in payload.
 """
 
     response = llm.invoke(prompt)
-    parsed = parse_response(response.content)
+
+    raw = response.content
+    print("RAW LLM RESPONSE:", raw)
+
+    parsed = extract_json(raw)
+
+    if not parsed:
+        return {
+            "form": state.get("form", {}),
+            "action": None,
+            "payload": {},
+            "message": "LLM parsing failed"
+        }
 
     action = parsed.get("action")
     payload = parsed.get("payload", {})
-    message = parsed.get("message") or "Interaction processed successfully"
-
-    action = enforce_action_rules(action, payload, user_input)
+    message = parsed.get("message", "Processed")
+    print("RAW LLM RESPONSE:", response.content)
+    print("PARSED:", parsed)
 
     return {
+        **state,
         "action": action,
         "payload": payload,
         "message": message,
-        "form": state["form"],
     }
-
-
 def executor_node(state: AgentState):
-    form = state["form"]
+
+    form = state.get("form", {})
     action = state.get("action")
     payload = state.get("payload", {})
 
@@ -49,59 +70,48 @@ def executor_node(state: AgentState):
 
     artifact_file = None
 
-    # Generate PDF artifact if required
     artifact = updated_form.get("artifact")
     if artifact and artifact.get("type") == "samples_pdf":
         pdf_buffer = generate_samples_pdf(artifact["data"])
 
         os.makedirs("files", exist_ok=True)
 
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        file_id = f"samples_{timestamp}_{uuid.uuid4().hex[:6]}.pdf"
+        file_id = f"{uuid.uuid4().hex}.pdf"
         file_path = f"files/{file_id}"
 
         with open(file_path, "wb") as f:
             f.write(pdf_buffer.getvalue())
 
         artifact_file = f"http://127.0.0.1:8000/files/{file_id}"
+    print("ACTION:", action)
+    print("PAYLOAD:", payload)
+    print("UPDATED FORM:", updated_form)
 
     return {
-        **state,
-        "form": updated_form,
-        "message": state.get("message"),
-        "action": action,
-        "artifact_file": artifact_file,
-    }
+    **state,
+    "form": updated_form,
+    "artifact_file": artifact_file,
+}
 
 
 def followup_node(state: AgentState):
     form_data = state.get("form", {})
 
     prompt = FOLLOWUP_PROMPT + f"\nForm Data: {form_data}"
-
     response = llm.invoke(prompt)
-    parsed = parse_response(response.content)
 
-    # Ensure sentiment fallback
-    if (
-        not parsed.get("payload", {}).get("sentiment")
-        and parsed.get("input", "")
-    ):
-        parsed.setdefault("payload", {})["sentiment"] = fallback_sentiment(
-            parsed.get("input")
-        )
+    parsed = parse_response(response.content)
 
     raw_followups = parsed.get("followups", [])
 
-    clean_followups: List[str] = []
-
+    clean_followups = []
     for item in raw_followups:
         if isinstance(item, dict):
             clean_followups.append(item.get("action") or item.get("description"))
-        elif isinstance(item, str):
+        else:
             clean_followups.append(item)
 
     return {
-        **state,
-        "ai_suggested_followups": clean_followups,
-    }
+    "form": form_data,
+    "followups": clean_followups,
+}
