@@ -1,6 +1,6 @@
 from typing import TypedDict, Dict, Any
 from pydantic import BaseModel
-
+from typing import Dict, Any
 
 class AgentRequest(BaseModel):
     input_text: str
@@ -14,4 +14,4 @@ class AgentState(TypedDict, total=False):
     message: str
     output: Dict[str, Any]
     ai_suggested_followups: list[str]
-    artifact: Dict[str, Any]
+    artifact_file: str | None

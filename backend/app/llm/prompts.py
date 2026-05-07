@@ -32,6 +32,25 @@ FIELD MAPPING
 - interaction type → one of: visit, call, meeting
 
 =====================
+SENTIMENT INFERENCE RULES
+=====================
+
+You MUST infer sentiment from user input.
+
+Allowed values:
+- positive
+- neutral
+- negative
+
+Rules:
+- positive → happy, satisfied, agreed, successful, pleased
+- negative → unhappy, rejected, complaint, angry, not satisfied
+- neutral → default when unclear or factual statement
+
+IMPORTANT:
+If sentiment is unclear → always return "neutral"
+
+=====================
 SAMPLES FORMAT
 =====================
 samples_distributed must follow:
@@ -58,8 +77,19 @@ Choose EXACTLY ONE action:
 STRICT RULES:
 - If user says "remove", "don't remember", "clear" → DELETE
 - If user says "sorry", "correction", "actually" → UPDATE
-- If user provides table/list of samples → GENERATE_ARTIFACT
+- If user input contains:
+    - table format
+    - sample list
+    - medicine + sample + quantity structure
+    - or keywords like "samples distributed", "list of samples", "table"
 
+    👉 MUST use GENERATE_ARTIFACT action
+    👉 MUST extract structured samples_distributed array
+
+-For GENERATE_ARTIFACT:
+    - ALWAYS return payload.samples_distributed as structured list
+    - NEVER summarize
+    - NEVER return string
 =====================
 OUTPUT RULES
 =====================
