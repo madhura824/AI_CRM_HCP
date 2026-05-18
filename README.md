@@ -9,10 +9,23 @@ The system enables pharmaceutical and life-science field representatives to log 
 The application leverages LLMs, LangGraph workflows, FastAPI backend services, and a React + Redux frontend to create an intelligent CRM experience.
 
 ---
-# Links: 
-PORTAL WORKING DEMO : https://www.loom.com/share/eedd159cf7734d00b3a28360767412a6 
-CODE EXPLANATION DEMO : https://www.loom.com/share/fc5cc359122c42a4b458c7dd81ea5716
+
+# 🎥 Project Demonstration Links
+
+## 🚀 Portal Working Demo
+Watch the complete working demonstration of the AI-CRM-HCP platform:
+
+🔗 https://www.loom.com/share/eedd159cf7734d00b3a28360767412a6
+
 ---
+
+## 🧠 Code Explanation Demo
+Detailed walkthrough of the project architecture, backend workflow, LangGraph implementation, and codebase explanation:
+
+🔗 https://www.loom.com/share/fc5cc359122c42a4b458c7dd81ea5716
+
+---
+
 # Objective
 
 The goal of this project is to conceptualize and build an AI-powered Customer Relationship Management (CRM) module focused on Healthcare Professionals (HCPs).
